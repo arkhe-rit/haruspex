@@ -2,6 +2,7 @@ from sentence_transformers import SentenceTransformer, util
 from PIL import Image
 import glob
 import os
+from tarot_cards import cards_keypoints
 
 print('Loading CLIP Model...')
 model = SentenceTransformer('clip-ViT-B-32')

@@ -1,24 +1,25 @@
 # Code rules:
 # - All OpenCV functions should be called with named parameters
 
+# python standard imports
 from abc import ABC, abstractmethod
-import cv2
-import numpy as np
 import time
 import traceback
-import pytesseract
-import os
-from Levenshtein import distance as lev_distance
 from concurrent.futures import ThreadPoolExecutor
+import os
 
+# 3rd party imports
+import cv2
+import numpy as np
+import pytesseract
+from Levenshtein import distance as lev_distance
+
+# local imports
 import pipeline
 from pipeline import Pipeline
-from camera_capture import oak_capture_generator, video_capture_generator
-from video_capture import VideoCapture
-
 from tarot_cards import cards_keypoints
 from feature_detector import detector, matcher
-from four_point_transform import four_point_transform, perspective_transform, make_square
+from four_point_transform import perspective_transform, make_square
 from threaded_camera import ThreadedCamera
 
 pytesseract.pytesseract.tesseract_cmd = fr'{os.getcwd()}\tesseract\tesseract.exe'
@@ -62,12 +63,6 @@ def find_best_text_match(cam_image):
             pipeline.isolate_title_area(cv2.rotate(cam_image, cv2.ROTATE_90_COUNTERCLOCKWISE))
         ]
 
-    # cam_rotated_titles = [pipeline.isolate_title_area(img) for img in [
-    #     cam_image,
-    #     cv2.rotate(cam_image, cv2.ROTATE_90_CLOCKWISE),
-    #     cv2.rotate(cam_image, cv2.ROTATE_180),
-    #     cv2.rotate(cam_image, cv2.ROTATE_90_COUNTERCLOCKWISE),
-    # ]]
     # invert colors of cam_rotated_titles
     cam_rotated_titles = [cv2.bitwise_not(img) for img in cam_rotated_titles]
     
@@ -83,7 +78,6 @@ def find_best_text_match(cam_image):
     if params['debug_show']:
         for idx, img in enumerate(cam_rotated_titles):
             print("---")
-            # print(pytesseract.image_to_string(img, config=r'--psm 11 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
             print(ocr_psm11(img))
             print(ocr_psm7(img))
             print("---")
@@ -176,31 +170,12 @@ def find_best_match(cam_image):
         cv2.rotate(cam_image, cv2.ROTATE_90_COUNTERCLOCKWISE),
     ]]
 
-    # for idx, cam_rotation in enumerate(cam_rotated_titles):
-    #     cv2.imshow('cam_title_area', cam_rotation)
-    #     cv2.waitKey(0)
-
-    # edges = cv2.Canny(cam_image,100,200)
-
-    # cv2.imshow('cam_image', cam_image)
-    # cv2.waitKey(0)
-
     kp_cam, des_cam = detector.detectAndCompute(image=cam_image, mask=None)
-
-    # show the keypoints on the cam_image and wait for keypress
-    # cam_image = cv2.drawKeypoints(image=cam_image, keypoints=kp_cam, 
-    #                   outImage=cam_image, flags=cv2.DRAW_MATCHES_FLAGS_DEFAULT)
-    # cv2.imshow('Keypoints', cam_image)
-    # cv2.waitKey(0)
 
     best_match = None
     best_match_quality = 0
     for idx, tarot_card in enumerate(cards_keypoints):
         ref_image = cards_keypoints[tarot_card]['image']
-        # ref_image = cv2.Canny(ref_image,100,200)
-
-        # is canny a good idea or not
-
         ref_title = pipeline.isolate_title_area(ref_image)
 
         kp_tarot = cards_keypoints[tarot_card]['keypoints']
@@ -240,16 +215,6 @@ def find_best_match(cam_image):
         good_matches_full_card  = [m for m, n in matches_full_card if m.distance < ratio * n.distance]
         good_matches_for_titles = [[m for m, n in matches if m.distance < ratio * n.distance] for matches in matches_titles]
         
-        # # After obtaining the good matches, calculate the homography
-        # src_pts_full_card = np.float32([kp_cam[m.queryIdx].pt for m in good_matches_full_card]).reshape(-1, 1, 2)
-        # dst_pts_full_card = np.float32([kp_tarot[m.trainIdx].pt for m in good_matches_full_card]).reshape(-1, 1, 2)
-
-        # # Find homography using RANSAC
-        # M, mask = cv2.findHomography(srcPoints=src_pts_full_card, dstPoints=dst_pts_full_card, method=cv2.RANSAC, ransacReprojThreshold=5.0)
-
-        # # Filter out the outliers using the mask
-        # good_matches_full_card = np.array(good_matches_full_card)[mask.ravel() == 1].tolist()
-
         match_quality_full_card = 0 if len(matches_full_card) == 0 else len(good_matches_full_card) / len(matches_full_card) * 100
         # Max quality for everything in good_matches_for_titles by the above metric
         match_quality_title_area = max([0 if len(matches) == 0 else len(good_matches) / len(matches) * 100 for matches, good_matches in zip(matches_titles, good_matches_for_titles)])
@@ -292,24 +257,6 @@ def control(params_out):
     return True
 
 def main():
-    # vid = cv2.VideoCapture(0) # built in
-    # vid = cv2.VideoCapture(0, cv2.CAP_DSHOW) 
-    # vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    # vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-    # vid.set(cv2.CAP_PROP_BUFFERSIZE, 0)
-    # vid.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-    # vid.set(cv2.CAP_PROP_FPS, FPS)
-    # vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    # vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-    # vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    # vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
-    # stream = LiftedStream(video_capture_generator(vid))
-    # stream = LiftedStream(oak_capture_generator())
-    # stream = ThreadedCamera(0, cv2.CAP_DSHOW)
-    # stream.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
-    # stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
-
     vid = ThreadedCamera(0, cv2.CAP_DSHOW)
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
@@ -365,60 +312,12 @@ def main():
                 print(f'find_best_text_match took {ms} milliseconds')
 
                 matches.append(result[0])
-                # t0 = time.time()
-                # st_match = find_best_sentence_transformer_match(highDefImage)
-                # t1 = time.time()
-                # ms = (t1 - t0) * 1000
-                # print(f'find_best_sentence_transformer_match took {ms} milliseconds')
-
-                # # intersection of result & st_match
-                # intersection = [match for match in result if match in st_match]
-
-                # if len(intersection) > 0:
-                #     matches.append(intersection[0])
-            # for each bounding box, extract high def image and run detector.detectAndCompute
-            # for (x, y, w, h) in boundingBoxes:
-            #     # extract high def image
-            #     highDefImage = highDefFrame[y:y+h, x:x+w]
-
-            #     result = find_best_match(highDefImage)
-            #     matches.append(result)
-
-                # # run detector.detectAndCompute
-                # kp, des = detector.detectAndCompute(image=highDefImage, mask=None)
-
-                # # cards_keypoints is a dictionary like:
-                # # {
-                # #     'magician': {'keypoints': [], 'descriptors': [], 'image': <image>},
-                # #     'high_priestess': {'keypoints': [], 'descriptors': [], 'image': <image>},
-                # #     ...
-                # # }
-                # # use matcher (flann) to find the most similar tarot card
-                # for card_name, card_data in cards_keypoints.items():
-                #     matches = matcher.knnMatch(des, card_data['descriptors'], k=2)
-                #     good = []
-                #     # for m, n in matches:
-                #     #     if m.distance < 0.7 * n.distance:
-                #     #         good.append([m])
-                #     # # draw the matches
-                #     # print(card_name, len(good))
-                #     matchesMask = [[0,0] for i in range(len(matches))]
-                #     # ratio test as per Lowe's paper
-                #     for i,(m,n) in enumerate(matches):
-                #         if m.distance < 0.7*n.distance:
-                #             matchesMask[i]=[1,0]
-                #     draw_params = dict(matchColor = (0,255,0),
-                #                        singlePointColor = (255,0,0),
-                #                        matchesMask = matchesMask,
-                #                        flags = cv2.DrawMatchesFlags_DEFAULT)
-                #     img3 = cv2.drawMatchesKnn(highDefImage,kp,card_data['image'],card_data['keypoints'],matches,None,**draw_params)
-                #     cv2.imshow('image 3', img3)
+                
             cv2.drawContours(image=frame_to_show, contours=approximations, contourIdx=-1, color=(255, 0, 255), thickness=2, lineType=cv2.LINE_AA)
             # for each approximation i, draw the text matches[i] just below bounding box
             for i, (x, y, w, h) in enumerate(boundingBoxes):
                 cv2.putText(frame_to_show, matches[i], (x + 50, y + h + 50), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 3)
                               
-            
             cv2.imshow("Found Cards", cv2.resize(frame_to_show, (720, 405)))
 
             print(matches)
