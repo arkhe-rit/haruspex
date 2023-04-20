@@ -1,5 +1,3 @@
-# Code rules:
-# - All OpenCV functions should be called with named parameters
 
 # python standard imports
 from abc import ABC, abstractmethod
