@@ -1,8 +1,6 @@
 import cv2
-from feature_detector import detector
 import os
-from four_point_transform import make_square
-from pipeline import isolate_title_area
+from pipeline import isolate_title_area, make_square
 
 def card_path(card_name):
     path = os.path.join(os.getcwd(), 'cards', card_name)
@@ -124,14 +122,7 @@ for card_name, card_image in cards_paths_small.items():
 
     title = isolate_title_area(image)
 
-    keypoints, descriptors = detector.detectAndCompute(image, None)
-    keypoints_title, descriptors_title = detector.detectAndCompute(image=title, mask=None)
-
     cards_keypoints[card_name] = {
-        'keypoints': keypoints,
-        'descriptors': descriptors,
-        'keypoints_title': keypoints_title,
-        'descriptors_title': descriptors_title,
         'image': image,
         'text': cards_text_full[card_name],
         'text_short': cards_text_short[card_name]

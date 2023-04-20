@@ -1,9 +1,3 @@
-def video_capture_generator(video_capture):
-    while True:
-        ret, frame = video_capture.read()
-        if not ret:
-            break
-        yield frame
 
 def oak_capture_generator():
     import depthai as dai

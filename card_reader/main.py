@@ -16,10 +16,8 @@ from Levenshtein import distance as lev_distance
 
 # local imports
 import pipeline
-from pipeline import Pipeline
+from pipeline import Pipeline, perspective_transform, make_square
 from tarot_cards import cards_keypoints
-from feature_detector import detector, matcher
-from four_point_transform import perspective_transform, make_square
 from threaded_camera import ThreadedCamera
 
 pytesseract.pytesseract.tesseract_cmd = fr'{os.getcwd()}\tesseract\tesseract.exe'
@@ -160,91 +158,6 @@ def find_best_template_match(cam_image):
 
     return best_match
 
-def find_best_match(cam_image):
-    cam_image = make_square(cam_image)
-    cam_image = pipeline.to_grayscale(cam_image)
-    cam_rotated_titles = [pipeline.isolate_title_area(img) for img in [
-        cam_image,
-        cv2.rotate(cam_image, cv2.ROTATE_90_CLOCKWISE),
-        cv2.rotate(cam_image, cv2.ROTATE_180),
-        cv2.rotate(cam_image, cv2.ROTATE_90_COUNTERCLOCKWISE),
-    ]]
-
-    kp_cam, des_cam = detector.detectAndCompute(image=cam_image, mask=None)
-
-    best_match = None
-    best_match_quality = 0
-    for idx, tarot_card in enumerate(cards_keypoints):
-        ref_image = cards_keypoints[tarot_card]['image']
-        ref_title = pipeline.isolate_title_area(ref_image)
-
-        kp_tarot = cards_keypoints[tarot_card]['keypoints']
-        des_tarot = cards_keypoints[tarot_card]['descriptors']        
-        matches_full_card = matcher.knnMatch(des_cam, des_tarot, k=2)
-
-        kp_ref_title = cards_keypoints[tarot_card]['keypoints_title']
-        des_ref_title = cards_keypoints[tarot_card]['descriptors_title']
-        matches_titles = []
-        for cam_title_area in cam_rotated_titles:
-            kp_cam_title, des_cam_title = detector.detectAndCompute(image=cam_title_area, mask=None)
-            these_title_matches = matcher.knnMatch(des_cam_title, des_ref_title, k=2)
-            matches_titles.append(these_title_matches)
-
-            if params['debug_show']:
-                matches_to_show = [m for m, n in these_title_matches if m.distance < 0.95 * n.distance]
-                # sort by quality
-                matches_to_show.sort(key=lambda m: m.distance)
-                # only the top 10 matches
-                matches_to_show = matches_to_show[:10]
-                match_quality = len(matches_to_show) / len(these_title_matches) * 100
-                matches_img = cv2.drawMatches(
-                    img1=cam_title_area,
-                    keypoints1=kp_cam_title,
-                    img2=ref_title,
-                    keypoints2=kp_ref_title,
-                    matches1to2=matches_to_show,
-                    outImg=None,
-                    flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
-                )
-                # draw match_quality text on matches_img
-                cv2.putText(matches_img, f'{match_quality:.2f}%', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                cv2.imshow('matches', matches_img)
-                cv2.waitKey(0)        
-
-        ratio = 0.7
-        good_matches_full_card  = [m for m, n in matches_full_card if m.distance < ratio * n.distance]
-        good_matches_for_titles = [[m for m, n in matches if m.distance < ratio * n.distance] for matches in matches_titles]
-        
-        match_quality_full_card = 0 if len(matches_full_card) == 0 else len(good_matches_full_card) / len(matches_full_card) * 100
-        # Max quality for everything in good_matches_for_titles by the above metric
-        match_quality_title_area = max([0 if len(matches) == 0 else len(good_matches) / len(matches) * 100 for matches, good_matches in zip(matches_titles, good_matches_for_titles)])
-
-        match_quality = match_quality_full_card #(match_quality_full_card + match_quality_title_area) / 2
-
-        if params['debug_show']:
-            # Sort the matches by distance (lower is better)
-            matches = sorted(good_matches_full_card, key=lambda x: x.distance)
-
-            matches_img = cv2.drawMatches(
-                img1=cam_image,
-                keypoints1=kp_cam,
-                img2=cards_keypoints[tarot_card]['image'],
-                keypoints2=kp_tarot,
-                matches1to2=matches[:20], 
-                outImg=None,
-                flags=cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS
-            )
-            # draw the text "Q: <match_quality>" on the top left corner of the matches_img
-            cv2.putText(matches_img, f'Q: {match_quality:.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            cv2.imshow('Matches', matches_img)
-            cv2.waitKey(0)
-
-        if match_quality > best_match_quality:
-            best_match = tarot_card
-            best_match_quality = match_quality
-        
-    return best_match
-
 def control(params_out):
     key = cv2.waitKey(1)
     if key == ord('q'):
@@ -301,7 +214,6 @@ def main():
             for approx in approximations:
                 # show image
 
-                # highDefImage = four_point_transform(highDefFrame, approx.reshape((4, 2)).astype(np.float32))
                 highDefImage = perspective_transform(highDefFrame, approx)
                 cv2.imshow('highDefImage', highDefImage)
                 # find the best match
