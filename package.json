@@ -1,0 +1,36 @@
+{
+  "name": "haruspex",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "conductor": "node conductor/app.js",
+    "card_reader": "python card_reader/main.py",
+    "state_machine": "node conductor/state_machine/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arkhe-rit/haruspex.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/arkhe-rit/haruspex/issues"
+  },
+  "homepage": "https://github.com/arkhe-rit/haruspex#readme",
+  "dependencies": {
+    "gpt-3-encoder": "^1.1.4",
+    "koa": "^2.14.2",
+    "koa-router": "^12.0.0",
+    "koa-static": "^5.0.0",
+    "nanoid": "^4.0.2",
+    "node-fetch": "^3.3.1",
+    "openai": "^3.2.1",
+    "redis": "^4.6.5",
+    "socket.io": "^4.6.1",
+    "sound-play": "^1.1.0",
+    "speaker": "^0.5.4"
+  }
+}

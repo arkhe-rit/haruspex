@@ -17,6 +17,7 @@ import pipeline
 from pipeline import Pipeline, perspective_transform, make_square
 from tarot_cards import cards_keypoints
 from threaded_camera import ThreadedCamera
+from publish import publish, subscribe, subscribe_once
 
 pytesseract.pytesseract.tesseract_cmd = fr'{os.getcwd()}\tesseract\tesseract.exe'
 
@@ -231,6 +232,22 @@ def main():
             cv2.imshow("Found Cards", cv2.resize(frame_to_show, (720, 405)))
 
             print(matches)
+            # if len(matches) > 0:
+            #     publish(channel='haruspex-cards-observed', 
+            #             message=matches)
+            #time the following
+            # t0 = None
+            # t1 = None
+            # def cont(message):
+            #     t1 = time.time()
+            #     ms = (t1 - t0) * 1000
+            #     print(f'publish roundtrip took {ms} milliseconds')
+            #     print(message)
+
+            # subscribe_once(channel="haruspex-cards-observed-ack", callback=cont)
+            # t0 = time.time()
+            result = publish(channel='haruspex-cards-observed', 
+                             message=['death', 'hanged man', 'temperance'])
 
     except Exception as e:
         print("Error:", e)

@@ -18,9 +18,14 @@ class ThreadedCamera():
 
     def update(self):
         while True:
-            if self.capture.isOpened():
-                (self.status, self.frame) = self.capture.read()
-            time.sleep(self.FPS_S)
+            try:
+                if self.capture.isOpened():
+                    (self.status, self.frame) = self.capture.read()
+                time.sleep(self.FPS_S)
+            except cv2.error as e:
+                print(f"Error reading frame from camera: {e}")
+                time.sleep(10 * self.FPS_S)
+
     
     def set(self, *args):
         return self.capture.set(*args)

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic Koa Server with Socket.IO and Redis Proxy</title>
+
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h1>Basic Koa Server with Socket.IO and Redis Proxy</h1>
+
+  <script>
+    const socket = io();
+  
+    // Subscribe to a Redis channel
+    const channel = 'haruspex-cards-observed';
+    socket.emit('subscribe', channel);
+  
+    // Listen for Redis messages and display them
+    socket.on('redisMessage', ({ channel, message }) => {
+      const messageElement = document.createElement('p');
+      messageElement.textContent = `Received message on channel '${channel}': ${JSON.stringify(message)}`;
+      document.body.appendChild(messageElement);
+    });
+  </script>
+</body>
+</html>
