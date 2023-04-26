@@ -1,6 +1,7 @@
 import Koa from 'koa';
 import Router from 'koa-router';  
 import serve from 'koa-static';
+import mount from 'koa-mount';
 import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -8,6 +9,9 @@ import { subscribe, publish, unsubscribe } from './subscribe.js';
 import { machine } from './state_machine/haruspex_machine.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { attachRedisBrowserProxy } from './redis_browser_proxy/index.js';
+import { video_files } from '../videos/index.js';
+import { choose_videos, generate_twilightZone, list_events } from './generation/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,50 +21,20 @@ const router = new Router();
 const server = http.createServer(app.callback());
 const io = new Server(server);
 
+attachRedisBrowserProxy(io);
+
+machine.run();
+
+// const [vids, events] = await Promise.all([
+//   choose_videos({videos: video_files, numVideos: 1})(['The Star', 'The Sun', 'The Moon']),
+//   list_events({numEvents: 5})(['The Star', 'The Sun', 'The Moon'])
+// ]);
+
+
 // static files
 console.log(__dirname);
 app.use(serve(join(__dirname, 'public')));
-
-// Forward messages from Redis to the browser clients through Socket.IO
-const handleRedisMessage = (message, channel) => {
-  io.to(channel).emit('redisMessage', { channel, message });
-};
-
-io.on('connection', (socket) => {
-  console.log('Client connected');
-  const subscriptions = [];
-
-  // Forward messages from browser clients to Redis
-  socket.on('clientMessage', async ({ channel, message }) => {
-    console.log(`Received message from client on channel '${channel}':`, message);
-    await publish(channel, message);
-  });
-
-  // Subscribe the client to a Redis channel
-  socket.on('subscribe', async (channel) => {
-    console.log(`Client requested to subscribe to channel '${channel}'`);
-    socket.join(channel);
-    await subscribe(channel, handleRedisMessage);
-    subscriptions.push(channel);
-  });
-
-  // Unsubscribe the client from a Redis channel
-  socket.on('unsubscribe', async (channel) => {
-    console.log(`Client requested to unsubscribe from channel '${channel}'`);
-    socket.leave(channel);
-    await unsubscribe(channel, handleRedisMessage);
-    subscriptions.splice(subscriptions.indexOf(channel), 1);
-  });
-
-  socket.on('disconnect', async () => {
-    console.log('Client disconnected');
-    console.log('Forcibly unsubscribing...');
-    for (const channel of subscriptions) {
-      socket.leave(channel);
-      await unsubscribe(channel, handleRedisMessage);
-    }
-  });
-});
+app.use(mount('/videos', serve(join(__dirname, '../videos'))));
 
 router.get('/audio/:filename', async (ctx) => {
   const { filename } = ctx.params;

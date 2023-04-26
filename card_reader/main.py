@@ -232,9 +232,9 @@ def main():
             cv2.imshow("Found Cards", cv2.resize(frame_to_show, (720, 405)))
 
             print(matches)
-            # if len(matches) > 0:
-            #     publish(channel='haruspex-cards-observed', 
-            #             message=matches)
+            if len(matches) > 0:
+                publish(channel='haruspex-cards-observed', 
+                        message=matches)
             #time the following
             # t0 = None
             # t1 = None
@@ -246,8 +246,8 @@ def main():
 
             # subscribe_once(channel="haruspex-cards-observed-ack", callback=cont)
             # t0 = time.time()
-            result = publish(channel='haruspex-cards-observed', 
-                             message=['death', 'hanged man', 'temperance'])
+            # result = publish(channel='haruspex-cards-observed', 
+            #                  message=['death', 'hanged man', 'temperance'])
 
     except Exception as e:
         print("Error:", e)

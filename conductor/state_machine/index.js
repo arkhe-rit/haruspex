@@ -22,6 +22,10 @@ class State {
 
     const nextState = await listener(data, emit);
 
+    if (!nextState) {
+      return this;
+    }
+
     return nextState;
   }
 

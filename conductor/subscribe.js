@@ -21,8 +21,8 @@ console.info('Redis clients connected');
 let listeners = {};
 
 const publish = async (channel, message) => {
-  message = JSON.stringify(message);
-  await pubClient.publish(channel, message);
+  if (message) message = JSON.stringify(message);
+  await pubClient.publish(channel, message || '');
 }
 
 const subscribe = async (channel, onMessage) => {
@@ -31,7 +31,7 @@ const subscribe = async (channel, onMessage) => {
   }
 
   const listener = (message, channel) => {
-    console.log(`Received message from channel '${channel}':`);
+    // console.log(`Received message from channel '${channel}':`);
     try {
         // Parse the JSON message and log the object
         const obj = message

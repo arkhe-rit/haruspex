@@ -5,24 +5,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Basic Koa Server with Socket.IO and Redis Proxy</title>
 
+  <link rel="stylesheet" href="index.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-  <h1>Basic Koa Server with Socket.IO and Redis Proxy</h1>
+  <video id="fullscreen_video" src="./videos/abstract_geometric.mp4" autoplay muted loop></video>
 
   <script>
     const socket = io();
+
+    const subscribe = (eventName, handler) => {
+      socket.emit('subscribe', eventName);
+    
+      // Listen for Redis messages and display them
+      const socketHandler = ({ channel, message }) => {
+        console.log('channel', channel);
+        return handler(message);
+      };
+      socket.on(eventName, socketHandler);
+
+      return () => {
+        socket.emit('unsubscribe', eventName);
+        socket.off(eventName, socketHandler);
+      };
+    }
   
-    // Subscribe to a Redis channel
-    const channel = 'haruspex-cards-observed';
-    socket.emit('subscribe', channel);
-  
-    // Listen for Redis messages and display them
-    socket.on('redisMessage', ({ channel, message }) => {
-      const messageElement = document.createElement('p');
-      messageElement.textContent = `Received message on channel '${channel}': ${JSON.stringify(message)}`;
-      document.body.appendChild(messageElement);
-    });
+
+
+
+    const listenForVideos = () => {
+      subscribe('videos-generated', (videos) => {
+        console.log('videos-generated', videos);
+        // const video = document.getElementById('fullscreen_video');
+        // video.src = videos[0].url;
+        // video.play();
+
+        document.querySelector('#fullscreen_video').src = `./videos/${videos[0]}`;
+        for (let i = 0; i < videos.length; i++) {
+          setTimeout(() => {
+            console.log('switching videos...', videos[i]);
+            document.querySelector('#fullscreen_video').src = `./videos/${videos[i]}`;
+          }, 5000 * i);
+        };
+        setTimeout(() => {
+          console.log('back to default video', videos[0]);
+          document.querySelector('#fullscreen_video').src = `./videos/abstract_geometric.mp4`;
+        }, 5000 * videos.length)
+      });
+    }
+    listenForVideos();
+
+    const listenForAudio = () => {
+      const unsubAudioBegin = subscribe('audio-begin', (message) => {
+        console.log('audio-begin', message);
+        
+        unsubAudioBegin();
+        const unsubAudioChunk = subscribe('audio-chunk', (message) => {
+          debugger;
+        });
+        const unsubAudioError = subscribe('audio-error', (message) => {
+          console.error('audio-error', message);
+          unsubAudioChunk();
+          unsubAudioError();
+          unsubAudioEnd();
+          listenForAudio();
+        });
+        const unsubAudioEnd = subscribe('audio-end', (message) => {
+          unsubAudioChunk();
+          unsubAudioError();
+          unsubAudioEnd();
+          listenForAudio();
+        });
+      });
+    };
+    listenForAudio();
+
+
   </script>
 </body>
 </html>

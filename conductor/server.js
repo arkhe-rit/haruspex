@@ -1,16 +1,15 @@
 import { subscribe, publish } from "./subscribe.js";
-import { chat_gpt35, generate_twilightZone } from "./apis/openai.js";
+import { chat_gpt35 } from "./apis/openai.js";
 import { vocalize, listVoices, findVoiceID, vocalize_rod } from "./apis/elevenLabs.js";
 import sound from 'sound-play';
 import Speaker from 'speaker';
 import { Machine, State } from "./state_machine/index.js";
+import { generate_twilightZone } from "./generation/index.js";
 const speaker = new Speaker({
   channels: 2,          // 2 channels
   bitDepth: 16,         // 16-bit samples
   sampleRate: 44100     // 44,100 Hz sample rate
 });
-
-setInterval(() => {}, 1000);
 
 const voices = await listVoices();
 
@@ -43,9 +42,9 @@ const waitingForAudio = (text) => State.empty()
     return waitingForCards();
   });
 
-const machine = new Machine(waitingForCards());
-machine.run();
 
+
+  
 // subscribe('haruspex-cards-observed', async (message, channel) => {
 //   console.log('received message');
 //   await publish('haruspex-cards-observed-ack', message ? message.reverse() : 'bloop');
