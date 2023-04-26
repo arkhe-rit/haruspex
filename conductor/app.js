@@ -10,8 +10,6 @@ import { machine } from './state_machine/haruspex_machine.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { attachRedisBrowserProxy } from './redis_browser_proxy/index.js';
-import { video_files } from '../videos/index.js';
-import { choose_videos, generate_twilightZone, list_events } from './generation/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,7 +17,10 @@ const __dirname = dirname(__filename);
 const app = new Koa();
 const router = new Router();
 const server = http.createServer(app.callback());
-const io = new Server(server);
+const io = new Server(server, {
+  pingInterval: 2 * 1000,
+  pingTimeout: 30 * 1000,
+});
 
 attachRedisBrowserProxy(io);
 
@@ -34,7 +35,7 @@ machine.run();
 // static files
 console.log(__dirname);
 app.use(serve(join(__dirname, 'public')));
-app.use(mount('/videos', serve(join(__dirname, '../videos'))));
+app.use(mount('/media', serve(join(__dirname, '../media'))));
 
 router.get('/audio/:filename', async (ctx) => {
   const { filename } = ctx.params;

@@ -7,9 +7,17 @@ const attachRedisBrowserProxy = (io) => {
     io.to(channel).emit(channel, { channel, message });
   };
 
+  io.on('error', (error) => {
+    console.error(`Socket.IO encountered an error: ${error.message}`);
+  });
+
   io.on('connection', (socket) => {
     console.log('Client connected');
     const subscriptions = [];
+
+    socket.on('error', (error) => {
+      console.error(`Socket.IO client encountered an error: ${error.message}`);
+    });
 
     // Forward messages from browser clients to Redis
     socket.on('clientMessage', async ({ channel, message }) => {

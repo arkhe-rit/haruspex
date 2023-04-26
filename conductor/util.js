@@ -47,6 +47,7 @@ const arrayMode = (arrays) => {
 }
 
 export {
+  arrayLevenshteinDistance,
   arrayContainsAll,
   arrayMode
 }

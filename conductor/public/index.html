@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,15 +9,38 @@
   <link rel="stylesheet" href="index.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
-<body>
-  <video id="fullscreen_video" src="./videos/abstract_geometric.mp4" autoplay muted loop></video>
+
+<body>  
+  <video id="default_video" class="default fullscreen_video" src="./media/videos/default/abstract_geometric.mp4" autoplay muted
+    loop>
+  </video>
+  <video id="thinking_video" class="default fullscreen_video" src="./media/videos/default/thinking_video.mp4" autoplay muted
+    loop>
+  </video>
+  <audio id="default_audio" class="default" src="./media/sfx/default/abstract_wooshing.mp3" autoplay loop></audio>
+  <audio id="thinking_audio" class="default" src="./media/sfx/default/heartbeat_slow.mp3" autoplay loop></audio>
+
+  <button id="interaction_excuse">Go</button>
+
 
   <script>
+    const MEDIA_DURATION = 20 * 1000; // 20 seconds
+
     const socket = io();
+
+    socket.on('disconnect', () => {
+      console.log('disconnected');
+      // Try to reconnect
+      socket.connect();
+    });
+
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
 
     const subscribe = (eventName, handler) => {
       socket.emit('subscribe', eventName);
-    
+
       // Listen for Redis messages and display them
       const socketHandler = ({ channel, message }) => {
         console.log('channel', channel);
@@ -29,58 +53,169 @@
         socket.off(eventName, socketHandler);
       };
     }
-  
 
+    document.querySelector('#interaction_excuse').addEventListener('click', e => {
+      // hide button
+      e.target.style.display = 'none';
+      // Play default audio element at half volume
+      document.querySelector('#default_audio').volume = 0.5;
+      document.querySelector('#default_audio').play();
+
+      document.querySelector('#thinking_audio').volume = 0;
+      document.querySelector('#thinking_audio').play();
+    });
 
 
     const listenForVideos = () => {
-      subscribe('videos-generated', (videos) => {
-        console.log('videos-generated', videos);
+      subscribe('media-generating', () => {
+        console.log('media-generating');
+
+        document.querySelector('#default_video').style.opacity = 0;
+        document.querySelector('#thinking_video').style.opacity = 1;
+
+        fadeTo(0, 3000, document.querySelector('#default_audio'));
+        fadeTo(0.5, 3000, document.querySelector('#thinking_audio'));
+      });
+
+      subscribe('media-generated', ({ videos, sounds }) => {
+        console.log('media-generated', videos, sounds);
         // const video = document.getElementById('fullscreen_video');
         // video.src = videos[0].url;
         // video.play();
 
-        document.querySelector('#fullscreen_video').src = `./videos/${videos[0]}`;
-        for (let i = 0; i < videos.length; i++) {
-          setTimeout(() => {
-            console.log('switching videos...', videos[i]);
-            document.querySelector('#fullscreen_video').src = `./videos/${videos[i]}`;
-          }, 5000 * i);
-        };
-        setTimeout(() => {
-          console.log('back to default video', videos[0]);
-          document.querySelector('#fullscreen_video').src = `./videos/abstract_geometric.mp4`;
-        }, 5000 * videos.length)
+        setupVideoTransitions(videos);
+        setupAudio(sounds);
       });
     }
     listenForVideos();
 
-    const listenForAudio = () => {
-      const unsubAudioBegin = subscribe('audio-begin', (message) => {
-        console.log('audio-begin', message);
-        
-        unsubAudioBegin();
-        const unsubAudioChunk = subscribe('audio-chunk', (message) => {
-          debugger;
-        });
-        const unsubAudioError = subscribe('audio-error', (message) => {
-          console.error('audio-error', message);
-          unsubAudioChunk();
-          unsubAudioError();
-          unsubAudioEnd();
-          listenForAudio();
-        });
-        const unsubAudioEnd = subscribe('audio-end', (message) => {
-          unsubAudioChunk();
-          unsubAudioError();
-          unsubAudioEnd();
-          listenForAudio();
-        });
-      });
-    };
-    listenForAudio();
+    // const listenForAudio = () => {
+    //   const unsubAudioBegin = subscribe('audio-begin', (message) => {
+    //     console.log('audio-begin', message);
 
+    //     unsubAudioBegin();
+    //     const unsubAudioChunk = subscribe('audio-chunk', (message) => {
+    //       debugger;
+    //     });
+    //     const unsubAudioError = subscribe('audio-error', (message) => {
+    //       console.error('audio-error', message);
+    //       unsubAudioChunk();
+    //       unsubAudioError();
+    //       unsubAudioEnd();
+    //       listenForAudio();
+    //     });
+    //     const unsubAudioEnd = subscribe('audio-end', (message) => {
+    //       unsubAudioChunk();
+    //       unsubAudioError();
+    //       unsubAudioEnd();
+    //       listenForAudio();
+    //     });
+    //   });
+    // };
+    // listenForAudio();
+    function setupVideoTransitions(videos) {
+      const timePerVideo = MEDIA_DURATION / videos.length;
+
+      // Remove previous video elements
+      const previousVideoElements = document.querySelectorAll('.fullscreen_video:not(.default)');
+      previousVideoElements.forEach((videoElement) => videoElement.remove());
+
+      // new video elements
+      const videoElements = videos.map((video, i) => {
+        const videoElement = document.createElement('video');
+        videoElement.src = `./media/videos/${video}`;
+        videoElement.autoplay = true;
+        videoElement.muted = true;
+        videoElement.loop = true;
+        videoElement.classList.add('fullscreen_video');
+        videoElement.style.opacity = 0;
+        videoElement.style.zIndex = i + 10;
+        return videoElement;
+      });
+
+      // add new video elements to DOM
+      videoElements.forEach((videoElement) => {
+        document.body.appendChild(videoElement);
+      });
+
+      // Fade out default videos
+      document.querySelectorAll('video.default').forEach(elem => {
+        elem.style.opacity = 0;
+      });
+
+      // fade in new video elements one by one, every timePerVideo ms
+      videoElements.forEach((videoElement, index) => {
+        setTimeout(() => {
+          console.log('switching videos...', videos[index]);
+
+          videoElements.forEach((videoElement, i) => videoElement.style.opacity = 0);
+          videoElement.style.opacity = 1;
+        }, timePerVideo * index);
+      });
+
+      setTimeout(() => {
+        console.log('back to default video', videos[0]);
+        videoElements.forEach((videoElement, index) => {
+          videoElement.style.opacity = 0;
+        });
+        document.querySelector('#default_video').style.opacity = 1;
+
+        socket.emit('media-play-completed', '');
+
+        // document.querySelector('#fullscreen_video').src = `./media/videos/default/abstract_geometric.mp4`;
+      }, timePerVideo * videos.length)
+    }
+
+    function setupAudio(sounds) {
+      // Play all sounds at the same time
+      // Each sound is a filename at ./media/sfx/<filename> 
+
+      const audios = sounds.map((sound) => {
+        const audio = new Audio(`./media/sfx/${sound}`);
+        return audio;
+      });
+
+      fadeTo(0, 3000, document.querySelector('#default_audio'));
+      fadeTo(0, 3000, document.querySelector('#thinking_audio'));
+
+      audios.forEach((audio) => {
+        // fade in volume over 3 seconds and play
+        audio.volume = 0;
+        // set sound to loop
+        audio.loop = true;
+        audio.play();
+        
+        // fade in over 3 seconds with setInterval
+        fadeTo(1, 3000, audio);
+        
+        // After MEDIA_DURATION, fade out over 3 seconds
+        setTimeout(() => {
+          fadeTo(0, 3000, audio);
+        }, MEDIA_DURATION);
+      });
+
+      // After MEDIA_DURATION, fade in default audio
+      setTimeout(() => {
+        fadeTo(0.5, 3000, document.querySelector('#default_audio'));
+      }, MEDIA_DURATION);
+    }
+
+    function fadeTo(volume, duration, audio) {
+      const startVolume = audio.volume;
+      const volumeDiff = volume > startVolume
+        ? 0.01
+        : -0.01;
+      const fadeInterval = setInterval(() => {
+        if (Math.abs(audio.volume - volume) <= 0.02) {
+          clearInterval(fadeInterval);
+          audio.volume = volume;
+          return;
+        }
+        audio.volume += volumeDiff;
+      }, duration / 100);
+    }
 
   </script>
 </body>
+
 </html>

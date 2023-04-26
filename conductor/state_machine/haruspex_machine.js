@@ -1,11 +1,12 @@
 import fs from 'fs';
 
 import { listVoices, vocalize_rod } from "../apis/elevenLabs.js";
-import { choose_videos, generate_twilightZone } from "../generation/index.js";
+import { choose_videos, choose_videos_and_audio, generate_twilightZone } from "../generation/index.js";
 import { publish } from "../subscribe.js";
 import { State, Machine } from "./index.js";
 import { arrayContainsAll, arrayMode } from '../util.js';
-import { video_files } from '../../videos/index.js';
+import { files as video_files } from '../../media/videos/index.js';
+import { files as audio_files } from '../../media/sfx/index.js';
 
 let voices;
 try {
@@ -25,22 +26,7 @@ const denoisedCards = () => {
 
   return arrayMode(cardsHistory);
 };
-// const denoisedCards = () => {
-//   if (cardsHistory.length < HISTORY_LENGTH) return [];
 
-//   const counts = {};
-//   cardsHistory.forEach(cards => {
-//     const key = JSON.stringify(cards);
-//     counts[key] = (counts[key] || 0) + 1;
-//   });
-//   const mostCommon = Object.entries(counts).reduce((acc, [key, count]) => {
-//     if (count > acc.count) {
-//       return { key, count };
-//     }
-//     return acc;
-//   }, { key: null, count: 0 });
-//   return JSON.parse(mostCommon.key);
-// };
 let lastCards = [];
 
 const waitingForCards = () => State.empty()
@@ -50,32 +36,65 @@ const waitingForCards = () => State.empty()
 
     saveToHistory(message);
     const theseCards = denoisedCards();
-    console.log('---------------', theseCards);
+
     if (theseCards.length === 0 || 
         JSON.stringify(lastCards) === JSON.stringify(theseCards)) {
-      console.log('Cards unchanged');
+      // console.log('Cards unchanged');
       return;
     }
 
     if (!(theseCards.length === 3 && lastCards.length < theseCards.length)) {
-      console.log('Spread incomplete...', lastCards, theseCards);
+      // console.log('Spread incomplete...', lastCards, theseCards);
       lastCards = theseCards;
       return;
     }
 
-    console.log('Spread finished!');
+    console.log('Spread finished!', theseCards);
     lastCards = theseCards;
 
-    console.log('Generating text...');
-    
+    emit('haruspex-spread-complete', theseCards);
+  })
+  .on('haruspex-spread-complete', async (complete_spread, emit) => {
+    return generating(complete_spread);
+  });
+
+let mediaPlayTimer;
+const generating = (card_spread) => State.empty()
+  .enter(async (_, emit) => {
     // const twilightZone = await generate_twilightZone({ numWords: 70 })(theseCards);
     // console.log('Generated text:', twilightZone);
-    const videos = await choose_videos({videos: video_files, numVideos: 4})(theseCards);
+    emit('media-generating', '');
 
-    emit('videos-generated', videos);
+    try {
+      const {videos, sounds} = await choose_videos_and_audio({
+        videos: video_files,
+        sounds: audio_files,
+        numSounds: 2
+      })(card_spread);
+  
+      emit('media-generated', {videos, sounds});
+      mediaPlayTimer = setTimeout(() => {
+        emit('media-play-completed', '');
+      }, 40 * 1000);
+    } catch (e) {
+      console.error(e);
+      console.error('^^ Error generating media');
+      // if e is an axios error
+      if (e.isAxiosError) {
+        console.error(e.response.status);
+        console.error(e.response.data);
+      }
 
+      emit('media-play-completed', '');
+      if (mediaPlayTimer) clearTimeout(mediaPlayTimer);
+    }
     // return streamingAudio(twilightZone);
+  })
+  .on('media-play-completed', async (_, emit) => {
+    if (mediaPlayTimer) clearTimeout(mediaPlayTimer);
+    return waitingForCards();
   });
+
 
 const streamingAudio = (text) => State.empty()
   .enter(async (_, emit) => {

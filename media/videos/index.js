@@ -6,12 +6,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // List of all files in this directory
-const files = fs.readdirSync(__dirname);
+const allFiles = fs.readdirSync(__dirname);
 // Filter out all files that are not .mp4 files
-const video_files = files.filter(file => file.endsWith('.mp4'));
-
-console.log(video_files);
+const files = allFiles.filter(file => file.endsWith('.mp4'));
 
 export {
-  video_files
+  files
 }
