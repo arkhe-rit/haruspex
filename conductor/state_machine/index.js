@@ -88,6 +88,8 @@ class Machine {
   async run() {
     const emit = (event, data) => publish(event, data);
 
+    let unsubs = [];
+
     while (!this.stopped) {
       let eventsOfInterest = this.state.eventsOfInterest();
 
@@ -96,7 +98,7 @@ class Machine {
         newStateResolve = resolve;
       });
 
-      let unsubs = await Promise.all(eventsOfInterest.map(event => {
+      unsubs = await Promise.all(eventsOfInterest.map(event => {
         return subscribe(event, async (message, channel) => {
           let nextState = await this.state.transition(event, message, emit) || {};
 
@@ -113,6 +115,9 @@ class Machine {
           }
 
           if (!this.state.equals(nextState)) {
+            if (!unsubs) {
+              await new Promise(resolve => setTimeout(resolve, 10));
+            }
             await Promise.all(unsubs.map(unsub => unsub()));
             newStateResolve(nextState);
           }

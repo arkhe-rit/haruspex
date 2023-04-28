@@ -46,8 +46,11 @@ const arrayMode = (arrays) => {
   return arrays[averageDistances.indexOf(Math.min(...averageDistances))];
 }
 
+const pick = (array) => array[Math.floor(Math.random() * array.length)]
+
 export {
   arrayLevenshteinDistance,
   arrayContainsAll,
-  arrayMode
+  arrayMode,
+  pick
 }

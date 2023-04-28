@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "conductor": "node conductor/app.js",
     "card_reader": "python card_reader/main.py",
-    "state_machine": "node conductor/state_machine/index.js"
+    "state_machine": "node conductor/state_machine/index.js",
+    "start-redis": "wsl redis-server"
   },
   "repository": {
     "type": "git",

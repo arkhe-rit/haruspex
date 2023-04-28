@@ -19,6 +19,7 @@
   </video>
   <audio id="default_audio" class="default" src="./media/sfx/default/abstract_wooshing.mp3" autoplay loop></audio>
   <audio id="thinking_audio" class="default" src="./media/sfx/default/heartbeat_slow.mp3" autoplay loop></audio>
+  <audio id="fortune_audio" class="default" src=""></audio>
 
   <button id="interaction_excuse">Go</button>
 
@@ -66,7 +67,7 @@
     });
 
 
-    const listenForVideos = () => {
+    const listenForMedia = () => {
       subscribe('media-generating', () => {
         console.log('media-generating');
 
@@ -87,7 +88,26 @@
         setupAudio(sounds);
       });
     }
-    listenForVideos();
+    listenForMedia();
+
+    const listenForFortune = () => {
+      subscribe('fortune-file-generated', (filename) => {
+        console.log('fortune-file-generated', filename);
+        const fortuneAudio = document.querySelector('#fortune_audio');
+        fortuneAudio.src = `./media/generated/${filename}`;
+
+        let transitionDuration = 2000;
+        document.querySelectorAll('audio').forEach(elem => {
+          fadeTo(25, transitionDuration, elem);
+        });
+        fortuneAudio.volume = 0;
+        fadeTo(1, transitionDuration, fortuneAudio);
+        setTimeout(() => {
+          fortuneAudio.play();
+        }, transitionDuration)
+      });
+    };
+    listenForFortune();
 
     // const listenForAudio = () => {
     //   const unsubAudioBegin = subscribe('audio-begin', (message) => {

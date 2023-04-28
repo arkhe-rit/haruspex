@@ -13,9 +13,9 @@ const vocalize = (
     stability = 0, 
     similarity_boost = 0
   } = {}
-) => (text) => {
+) => (text, cards = null) => {
 
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voice.voice_id}/stream`;
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voice.voice_id}`;
 
   const data = {
     text,
@@ -35,26 +35,31 @@ const vocalize = (
     body: JSON.stringify(data)
   })
   .then(async (response) => {
+    debugger;
     if (response.ok) {
       const makeFileName = () => {
         const currentDate = new Date();
-        const uniqueId = `${voice.name}-${currentDate.getMonth() + 1}${currentDate.getDate()}${currentDate.getHours()}${currentDate.getMinutes()}-${nanoid()}`;
+        // voice.name + current time (with human readable month/day/hour/minute down to the ms
+        const uniqueId = `${voice.name}${cards ? `-[${cards.join(',')}]-` : '-'}${currentDate.getMonth() + 1}-${currentDate.getDate()}_${currentDate.getHours()}${currentDate.getMinutes()}_${currentDate.getSeconds()}_${currentDate.getMilliseconds()}`;        
         const outputFile = `${uniqueId}.mp3`;
         return outputFile;
       };
-
+      
       const filename = makeFileName();
-      const fileStream = createWriteStream(filename);
+      const fileStream = createWriteStream(`media/generated/${filename}`);
 
       response.body.pipe(fileStream);
 
       vocalizationStreams[filename] = fileStream;
 
+      let resolve;
+      const retPromise = new Promise(_resolve => {resolve = _resolve;});
       fileStream.on('finish', () => {
         console.log(`Audio saved to ${filename}`);
+        resolve(filename);
       });
 
-      return filename;
+      return retPromise;
     } else {
       // Log the error details
       console.error(response.status, response.statusText);
