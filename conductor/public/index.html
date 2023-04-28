@@ -10,12 +10,12 @@
   <script src="/socket.io/socket.io.js"></script>
 </head>
 
-<body>  
-  <video id="default_video" class="default fullscreen_video" src="./media/videos/default/abstract_geometric.mp4" autoplay muted
-    loop>
+<body>
+  <video id="default_video" class="default fullscreen_video" src="./media/videos/default/abstract_geometric.mp4"
+    autoplay muted loop>
   </video>
-  <video id="thinking_video" class="default fullscreen_video" src="./media/videos/default/thinking_video.mp4" autoplay muted
-    loop>
+  <video id="thinking_video" class="default fullscreen_video" src="./media/videos/default/thinking_video.mp4" autoplay
+    muted loop>
   </video>
   <audio id="default_audio" class="default" src="./media/sfx/default/abstract_wooshing.mp3" autoplay loop></audio>
   <audio id="thinking_audio" class="default" src="./media/sfx/default/heartbeat_slow.mp3" autoplay loop></audio>
@@ -25,8 +25,14 @@
 
 
   <script>
-    const MEDIA_DURATION = 20 * 1000; // 20 seconds
+    const MAX_MEDIA_DURATION = 25 * 1000;
+    const MEDIA_DURATION = 15 * 1000;
 
+    let CURRENT_STATE;
+
+    document.querySelectorAll('audio').forEach(elem => {
+      elem.volume = 0;
+    });
     const socket = io();
 
     socket.on('disconnect', () => {
@@ -58,12 +64,8 @@
     document.querySelector('#interaction_excuse').addEventListener('click', e => {
       // hide button
       e.target.style.display = 'none';
-      // Play default audio element at half volume
-      document.querySelector('#default_audio').volume = 0.5;
-      document.querySelector('#default_audio').play();
 
-      document.querySelector('#thinking_audio').volume = 0;
-      document.querySelector('#thinking_audio').play();
+      state_idling();
     });
 
 
@@ -71,11 +73,7 @@
       subscribe('media-generating', () => {
         console.log('media-generating');
 
-        document.querySelector('#default_video').style.opacity = 0;
-        document.querySelector('#thinking_video').style.opacity = 1;
-
-        fadeTo(0, 3000, document.querySelector('#default_audio'));
-        fadeTo(0.5, 3000, document.querySelector('#thinking_audio'));
+        state_thinking();
       });
 
       subscribe('media-generated', ({ videos, sounds }) => {
@@ -83,9 +81,7 @@
         // const video = document.getElementById('fullscreen_video');
         // video.src = videos[0].url;
         // video.play();
-
-        setupVideoTransitions(videos);
-        setupAudio(sounds);
+        state_playing_ambience(videos, sounds);
       });
     }
     listenForMedia();
@@ -93,18 +89,19 @@
     const listenForFortune = () => {
       subscribe('fortune-file-generated', (filename) => {
         console.log('fortune-file-generated', filename);
-        const fortuneAudio = document.querySelector('#fortune_audio');
-        fortuneAudio.src = `./media/generated/${filename}`;
 
-        let transitionDuration = 2000;
-        document.querySelectorAll('audio').forEach(elem => {
-          fadeTo(25, transitionDuration, elem);
-        });
-        fortuneAudio.volume = 0;
-        fadeTo(1, transitionDuration, fortuneAudio);
-        setTimeout(() => {
-          fortuneAudio.play();
-        }, transitionDuration)
+        if (CURRENT_STATE === 'PLAYING_AMBIENCE') {
+          let timeSinceAmbienceStarted = Date.now() - ambienceStartTime;
+          if (timeSinceAmbienceStarted < MEDIA_DURATION) {
+            setTimeout(() => {
+              state_reading_fortune(filename);
+            }, MEDIA_DURATION - timeSinceAmbienceStarted);
+          } else {
+            state_reading_fortune(filename);
+          }
+        } else {
+          // basically just ignore the fortune
+        }
       });
     };
     listenForFortune();
@@ -133,7 +130,89 @@
     //   });
     // };
     // listenForAudio();
-    function setupVideoTransitions(videos) {
+
+    function fadeTo(volume, duration, audio) {
+      const startVolume = audio.volume;
+      const volumeDiff = Math.abs(audio.volume - volume);
+      const volumeDelta = volume > startVolume
+        ? 0.01 * volumeDiff
+        : -0.01 * volumeDiff;
+
+      const clamp01 = clamp(0, 1);
+
+      let i = 0;
+      const fadeInterval = setInterval(() => {
+        i++;
+
+        if (i > 100) {
+          clearInterval(fadeInterval);
+          audio.volume = volume;
+          return;
+        }
+        audio.volume = clamp01(audio.volume + volumeDelta);
+      }, duration / 100);
+    }
+
+    function clamp(min, max) {
+      return (num) => {
+        return Math.min(Math.max(num, min), max);
+      }
+    }
+
+    function state_idling() {
+      CURRENT_STATE = 'IDLE';
+
+      const defaultAudio = document.querySelector('#default_audio');
+      const thinkingAudio = document.querySelector('#thinking_audio');
+
+      fadeTo(0.5, 3000, defaultAudio);
+      defaultAudio.play();
+
+      fadeTo(0, 3000, thinkingAudio);
+      thinkingAudio.play();
+
+      ambient_sounds.forEach((audio) => {
+        fadeTo(0, 3000, audio);
+        setTimeout(() => audio.remove(), 3000);
+      });
+
+      const previousVideoElements = document.querySelectorAll('.fullscreen_video:not(.default)');
+      previousVideoElements.forEach((videoElement, index) => {
+        videoElement.style.opacity = 0;
+      });
+      document.querySelector('#default_video').style.opacity = 1;
+    }
+
+    function state_thinking() {
+      CURRENT_STATE = 'THINKING';
+
+      document.querySelector('#default_video').style.opacity = 0;
+      document.querySelector('#thinking_video').style.opacity = 1;
+
+      fadeTo(0, 2000, document.querySelector('#default_audio'));
+      fadeTo(0.5, 1000, document.querySelector('#thinking_audio'));
+    }
+
+    let ambienceStartTime;
+    function state_playing_ambience(videos, sounds) {
+      CURRENT_STATE = 'PLAYING_AMBIENCE';
+
+      ambienceStartTime = Date.now();
+
+      state_playing_ambience_videos(videos);
+      state_playing_ambience_audio(sounds);
+    
+      // After MAX_MEDIA_DURATION, fade out over 3 seconds
+      setTimeout(() => {
+        console.log('checking max media duration point', CURRENT_STATE);
+        if (CURRENT_STATE === 'PLAYING_AMBIENCE') {
+          socket.emit('media-play-completed', '');
+          state_idling();
+        }
+      }, MAX_MEDIA_DURATION);
+    }
+
+    function state_playing_ambience_videos(videos) {
       const timePerVideo = MEDIA_DURATION / videos.length;
 
       // Remove previous video elements
@@ -165,76 +244,69 @@
 
       // fade in new video elements one by one, every timePerVideo ms
       videoElements.forEach((videoElement, index) => {
-        setTimeout(() => {
+        setTimeout(function switchVideo() {
+          if (CURRENT_STATE !== 'PLAYING_AMBIENCE') {
+            return;
+          }
+
           console.log('switching videos...', videos[index]);
 
           videoElements.forEach((videoElement, i) => videoElement.style.opacity = 0);
           videoElement.style.opacity = 1;
+
+          if (CURRENT_STATE === 'PLAYING_AMBIENCE') {
+            setTimeout(switchVideo, timePerVideo * index + MEDIA_DURATION);
+          }
         }, timePerVideo * index);
       });
-
-      setTimeout(() => {
-        console.log('back to default video', videos[0]);
-        videoElements.forEach((videoElement, index) => {
-          videoElement.style.opacity = 0;
-        });
-        document.querySelector('#default_video').style.opacity = 1;
-
-        socket.emit('media-play-completed', '');
-
-        // document.querySelector('#fullscreen_video').src = `./media/videos/default/abstract_geometric.mp4`;
-      }, timePerVideo * videos.length)
     }
 
-    function setupAudio(sounds) {
+    let ambient_sounds = [];
+    function state_playing_ambience_audio(sounds) {
       // Play all sounds at the same time
       // Each sound is a filename at ./media/sfx/<filename> 
 
-      const audios = sounds.map((sound) => {
+      ambient_sounds = sounds.map((sound) => {
         const audio = new Audio(`./media/sfx/${sound}`);
         return audio;
       });
 
-      fadeTo(0, 3000, document.querySelector('#default_audio'));
-      fadeTo(0, 3000, document.querySelector('#thinking_audio'));
+      fadeTo(0, 2000, document.querySelector('#default_audio'));
+      fadeTo(0, 2000, document.querySelector('#thinking_audio'));
+      fadeTo(0, 2000, document.querySelector('#fortune_audio'));
 
-      audios.forEach((audio) => {
+      ambient_sounds.forEach((audio) => {
         // fade in volume over 3 seconds and play
         audio.volume = 0;
         // set sound to loop
         audio.loop = true;
         audio.play();
-        
+
         // fade in over 3 seconds with setInterval
         fadeTo(1, 3000, audio);
-        
-        // After MEDIA_DURATION, fade out over 3 seconds
-        setTimeout(() => {
-          fadeTo(0, 3000, audio);
-        }, MEDIA_DURATION);
+      });
+    }
+
+    function state_reading_fortune(filename) {
+      CURRENT_STATE = 'READING_FORTUNE';  
+
+      let transitionDuration = 2000;
+      ambient_sounds.forEach(elem => {
+        fadeTo(.05, transitionDuration, elem);
       });
 
-      // After MEDIA_DURATION, fade in default audio
+      let fortuneAudio = document.querySelector('#fortune_audio');
+      fortuneAudio.volume = 1;
+      fortuneAudio.src = `./media/generated/${filename}`;
       setTimeout(() => {
-        fadeTo(0.5, 3000, document.querySelector('#default_audio'));
-      }, MEDIA_DURATION);
+        fortuneAudio.play();
+      }, transitionDuration);
+      fortuneAudio.addEventListener('ended', () => {
+        console.log('fortune audio ended');
+        socket.emit('media-play-completed', '');
+        state_idling();
+      });
     }
-
-    function fadeTo(volume, duration, audio) {
-      const startVolume = audio.volume;
-      const volumeDiff = volume > startVolume
-        ? 0.01
-        : -0.01;
-      const fadeInterval = setInterval(() => {
-        if (Math.abs(audio.volume - volume) <= 0.02) {
-          clearInterval(fadeInterval);
-          audio.volume = volume;
-          return;
-        }
-        audio.volume += volumeDiff;
-      }, duration / 100);
-    }
-
   </script>
 </body>
 
