@@ -53,7 +53,7 @@ const chat = (model) => (messages = []) => {
         max_tokens: max_content_length[model] - messagesTokenCount,
         stream: false
       }, {
-        timeout: 30 * 1000
+        timeout: 30 * 1000 // TODO
       });
 
       return response.data.choices[0].message.content;

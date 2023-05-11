@@ -70,6 +70,11 @@ async function generateMedia(cards, emit) {
   }
 }
 
+const defaultFortunes = [
+  `A bright and promising period lies ahead, bringing joy and vitality. However, a necessary sacrifice will lead to a new perspective. Prepare for sudden, dramatic change, as it will crumble established foundations, making way for personal transformation and growth. Embrace the shift and rebuild with newfound wisdom.`,
+  `A time of joy and success awaits you, but first, you must embrace a period of self-sacrifice and surrender. Through this transformative period, sudden upheaval will lead to enlightenment and the shedding of outdated beliefs, making way for a brighter and more stable future. Embrace change and face challenges head-on with courage.`,
+];
+
 // Ask openai for a fortune
 async function generateFortune(cards, emit) {
   emit('fortune-generating', '');
@@ -85,7 +90,7 @@ async function generateFortune(cards, emit) {
   } catch (e) {
     console.error('Error generating fortune', e);
 
-    emit('fortune-generated', { voice, fortune: 'Error generating fortune' });
+    emit('fortune-generated', { voice, fortune: defaultFortunes[0] });
   }
 }
 

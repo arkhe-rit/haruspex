@@ -14,9 +14,13 @@
   <video id="default_video" class="default fullscreen_video" src="./media/videos/default/abstract_geometric.mp4"
     autoplay muted loop>
   </video>
-  <video id="thinking_video" class="default fullscreen_video" src="./media/videos/default/thinking_video.mp4" autoplay
+  <video id="thinking_video" class="default fullscreen_video" src="./media/videos/default/thinking_video_large_text.mp4" autoplay
     muted loop>
   </video>
+  <video id="missCleo_video" class="default fullscreen_video" src="./media/videos/default/miss_cleo_long.mp4" autoplay muted loop></video>
+  <video id="rod_video" class="default fullscreen_video" src="./media/videos/default/rod_serling_long.mp4" autoplay muted loop></video>
+
+
   <audio id="default_audio" class="default" src="./media/sfx/default/abstract_wooshing.mp3" autoplay loop></audio>
   <audio id="thinking_audio" class="default" src="./media/sfx/default/heartbeat_slow.mp3" autoplay loop></audio>
   <audio id="fortune_audio" class="default" src=""></audio>
@@ -33,6 +37,7 @@
     document.querySelectorAll('audio').forEach(elem => {
       elem.volume = 0;
     });
+
     const socket = io();
 
     socket.on('disconnect', () => {
@@ -68,7 +73,7 @@
       state_idling();
     });
 
-
+    let delayedMediaPlay;
     const listenForMedia = () => {
       subscribe('media-generating', () => {
         console.log('media-generating');
@@ -81,7 +86,15 @@
         // const video = document.getElementById('fullscreen_video');
         // video.src = videos[0].url;
         // video.play();
-        state_playing_ambience(videos, sounds);
+        if (CURRENT_STATE === 'THINKING') {
+          state_playing_ambience(videos, sounds);
+        } 
+        if (CURRENT_STATE === 'READING_FORTUNE') {
+          delayedMediaPlay = () => {
+            state_playing_ambience(videos, sounds);
+          };
+        }
+        return;
       });
     }
     listenForMedia();
@@ -99,7 +112,11 @@
           } else {
             state_reading_fortune(filename);
           }
-        } else {
+        } if (CURRENT_STATE === 'THINKING') {
+          state_reading_fortune(filename);
+        }
+        
+        else {
           // basically just ignore the fortune
         }
       });
@@ -176,7 +193,7 @@
         setTimeout(() => audio.remove(), 3000);
       });
 
-      const previousVideoElements = document.querySelectorAll('.fullscreen_video:not(.default)');
+      const previousVideoElements = document.querySelectorAll('.fullscreen_video');
       previousVideoElements.forEach((videoElement, index) => {
         videoElement.style.opacity = 0;
       });
@@ -268,6 +285,12 @@
 
       ambient_sounds = sounds.map((sound) => {
         const audio = new Audio(`./media/sfx/${sound}`);
+
+        setTimeout(() => {
+          audio.pause();
+          audio.remove();
+        }, 60 * 1000);
+
         return audio;
       });
 
@@ -292,8 +315,14 @@
 
       let transitionDuration = 2000;
       ambient_sounds.forEach(elem => {
-        fadeTo(.05, transitionDuration, elem);
+        fadeTo(0.05, transitionDuration, elem);
       });
+
+      const defaultAudio = document.querySelector('#default_audio');
+      const thinkingAudio = document.querySelector('#thinking_audio');
+
+      fadeTo(0, transitionDuration, defaultAudio);
+      fadeTo(0, transitionDuration, thinkingAudio);
 
       let fortuneAudio = document.querySelector('#fortune_audio');
       fortuneAudio.volume = 1;
@@ -303,9 +332,32 @@
       }, transitionDuration);
       fortuneAudio.addEventListener('ended', () => {
         console.log('fortune audio ended');
-        socket.emit('media-play-completed', '');
-        state_idling();
+
+        if (delayedMediaPlay) {
+          delayedMediaPlay();
+          delayedMediaPlay = null;
+        } else {
+          socket.emit('media-play-completed', '');
+          state_idling();
+        }
       });
+
+      const isMissCleo = filename.includes('missCleo-');
+      const isRod = filename.includes('rod-');
+
+      if (isMissCleo || isRod) {
+        document.querySelectorAll('.fullscreen_video').forEach(elem => {
+          elem.style.opacity = 0;
+        });
+        
+        const fortuneTellerVid = 
+          (isMissCleo && document.querySelector('#missCleo_video')) || 
+          (isRod && document.querySelector('#rod_video'));
+
+        if (!fortuneTellerVid) return;
+
+        fortuneTellerVid.style.opacity = 1;
+      }
     }
   </script>
 </body>

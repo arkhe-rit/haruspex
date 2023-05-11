@@ -19,7 +19,7 @@ const router = new Router();
 const server = http.createServer(app.callback());
 const io = new Server(server, {
   pingInterval: 2 * 1000,
-  pingTimeout: 30 * 1000,
+  pingTimeout: 30 * 1000
 });
 
 attachRedisBrowserProxy(io);

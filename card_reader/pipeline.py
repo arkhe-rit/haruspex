@@ -27,6 +27,38 @@ class Pipeline():
     def contramap(self, f):
         return Pipeline(*(f,) + self.funcs)
 
+def narrow_to_roi(params):
+    def f(frame):
+        roiTop = params['roi_top']
+        roiLeft = params['roi_left']
+        roiSizeFactor = params['roi_size_factor']
+    
+        # each of the above is 0 -> 1
+
+        img_h, img_w = np.shape(frame)[:2]
+
+        roiTop = int(roiTop * img_h)
+        roiLeft = int(roiLeft * img_w)
+        
+        # roi_h = int(img_h * roiSizeFactor)
+        # roi_w = int(img_w * roiSizeFactor)
+        
+        # roi_h should be as above, or the max size that can fit
+        # in the image, whichever is smaller
+
+        max_w_factor = (img_w - roiLeft) / img_w
+        max_h_factor = (img_h - roiTop) / img_h
+        max_factor = min(max_w_factor, max_h_factor)
+
+        factor = roiSizeFactor if roiSizeFactor <= max_factor else max_factor
+
+        roi_h = int(img_h * factor)
+        roi_w = int(img_w * factor)
+
+        roi = frame[roiTop:roiTop+roi_h, roiLeft:roiLeft+roi_w]
+
+        return roi
+    return f
 
 def to_grayscale(frame):
     return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -119,7 +151,7 @@ def contours(output_out):
         
         def areaIsSizedJustRight(contour):
             # return 200 ** 2 < cv2.contourArea(contour) < 500 ** 2
-            return 200 ** 2 < cv2.contourArea(contour) < 800 ** 2
+            return 200 ** 2 < cv2.contourArea(contour) < 500 ** 2
         
         def contourHasNoParent(contour_i):
             return hierarchy[0][contour_i][3] == -1

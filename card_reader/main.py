@@ -28,6 +28,10 @@ params = {
     'threshold_C': 15, #15 #40,
     'show_threshold': False,
     'debug_show': False,
+    'roi_top': .29,
+    'roi_left': .18,
+    'roi_size_factor': .6,
+    'show_roi': False
 }
 # At home
 params['threshold_blockSize'] = 234
@@ -40,6 +44,12 @@ cv2.createTrackbar('Threshold C', 'Controls', params['threshold_C'], 100, lambda
 cv2.setTrackbarMin('Threshold C', 'Controls', -10)
 cv2.createTrackbar('Show threshold', 'Controls', 0, 1, lambda val: params.update({'show_threshold': True if val > 0.5 else False}))
 cv2.createTrackbar('Debug show', 'Controls', 1 if params['debug_show'] else 0, 1, lambda val: params.update({'debug_show': True if val > 0.5 else False}))
+# Create four trackbars for edges of region of interest
+cv2.createTrackbar('ROI top', 'Controls', 0, 100, lambda val: params.update({'roi_top': val / 100}))
+cv2.createTrackbar('ROI left', 'Controls', 0, 100, lambda val: params.update({'roi_left': val / 100}))
+cv2.createTrackbar('ROI size factor', 'Controls', 100, 100, lambda val: params.update({'roi_size_factor': val / 100}))
+# show roi
+cv2.createTrackbar('Show ROI', 'Controls', 1 if params['show_roi'] else 0, 1, lambda val: params.update({'show_roi': True if val > 0.5 else False}))
 
 def find_best_text_match(cam_image):
     # determine if cam_image is vertical or horizontal
@@ -175,7 +185,10 @@ def main():
     vid.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     
     output = {}
+        #         .map(pipeline.background_threshold(params)) \
+
     process_stream = Pipeline() \
+        .map(pipeline.narrow_to_roi(params)) \
         .map(pipeline.otsu_threshold(params)) \
         .map(pipeline.contours(output)) \
 
@@ -188,11 +201,15 @@ def main():
             raw_frame = vid.latest()
             frame = process_stream(raw_frame)
 
+            # if show_roi
+            if params['show_roi']:
+                cv2.imshow('ROI', cv2.resize(pipeline.narrow_to_roi(params)(frame), (720, 405)))
+
             contours = output['contours']
             # sort by center x
             contours = sorted(contours, key=lambda contour: np.mean(contour[:, 0, 0]))
 
-            frame_to_show = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if params['show_threshold'] else raw_frame
+            frame_to_show = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if params['show_threshold'] else pipeline.narrow_to_roi(params)(raw_frame)
             approximations = [
                 cv2.approxPolyDP(curve=contour, epsilon=0.1 * cv2.arcLength(contour, True), closed=True) 
                 for contour in contours
@@ -207,7 +224,7 @@ def main():
             boundingBoxes = [cv2.boundingRect(contour) for contour in contours]
             
             matches = []
-            highDefFrame = raw_frame
+            highDefFrame = pipeline.narrow_to_roi(params)(raw_frame)
 
             # for each approx
             for approx in approximations:

@@ -115,7 +115,7 @@ const choose_videos_and_audio = ({chatModel = chat_gpt4, videos, sounds, numVide
             ]
           },
           "minItems": ${numVideos || 2}, 
-          "maxItems": ${numVideos || 6},
+          "maxItems": ${numVideos || 5},
           "uniqueItems": true
         },
         "sounds": {

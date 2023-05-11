@@ -1,3 +1,7 @@
+html {
+  overflow: hidden;
+}
+
 body {
   background-color: #121212;
   color: #fff;
@@ -23,6 +27,13 @@ body {
   transition: opacity 1500ms cubic-bezier(0.6, -0.28, 0.735, 0.045);
 }
 
+#rod_video {
+  transform: scale(1.2);
+}
+#missCleo_video {
+  transform: scale(1.2);
+}
+
 #default_video {
   z-index: 5;
 }
@@ -45,3 +56,4 @@ body {
   border-radius: 50%;
 
 }
+
