@@ -31,13 +31,15 @@ params = {
     'roi_top': .29,
     'roi_left': .18,
     'roi_size_factor': .6,
-    'show_roi': False
+    'show_roi': False,
+    'rotate_angle': 0
 }
 # At home
 params['threshold_blockSize'] = 234
 params['threshold_C'] = 12
 
 cv2.namedWindow('Controls', cv2.WINDOW_NORMAL)
+
 cv2.createTrackbar('Threshold block size', 'Controls', params['threshold_blockSize'], 1000, lambda val: params.update({'threshold_blockSize': val}))
 cv2.setTrackbarMin('Threshold block size', 'Controls', 3)
 cv2.createTrackbar('Threshold C', 'Controls', params['threshold_C'], 100, lambda val: params.update({'threshold_C': val}))
@@ -50,6 +52,9 @@ cv2.createTrackbar('ROI left', 'Controls', 0, 100, lambda val: params.update({'r
 cv2.createTrackbar('ROI size factor', 'Controls', 100, 100, lambda val: params.update({'roi_size_factor': val / 100}))
 # show roi
 cv2.createTrackbar('Show ROI', 'Controls', 1 if params['show_roi'] else 0, 1, lambda val: params.update({'show_roi': True if val > 0.5 else False}))
+# a trackbar for rotation, allowing only 0, 90, 180, 270
+cv2.createTrackbar('Rotate angle', 'Controls', params['rotate_angle'], 270, lambda val: params.update({'rotate_angle': val // 90 * 90}))
+
 
 def find_best_text_match(cam_image):
     # determine if cam_image is vertical or horizontal
@@ -179,7 +184,7 @@ def control(params_out):
     return True
 
 def main():
-    vid = ThreadedCamera(0, cv2.CAP_DSHOW)
+    vid = ThreadedCamera(2, cv2.CAP_DSHOW)
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     vid.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
@@ -188,6 +193,7 @@ def main():
         #         .map(pipeline.background_threshold(params)) \
 
     process_stream = Pipeline() \
+        .map(pipeline.rotate(params)) \
         .map(pipeline.narrow_to_roi(params)) \
         .map(pipeline.otsu_threshold(params)) \
         .map(pipeline.contours(output)) \

@@ -60,6 +60,17 @@ def narrow_to_roi(params):
         return roi
     return f
 
+def rotate(params):
+    def f(frame):
+        angle = params['rotate_angle']
+        img_h, img_w = np.shape(frame)[:2]
+        center = (img_w // 2, img_h // 2)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated_frame = cv2.warpAffine(frame, M, (img_w, img_h))
+
+        return rotated_frame
+    return f
+
 def to_grayscale(frame):
     return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
