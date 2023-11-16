@@ -38,19 +38,70 @@
       elem.volume = 0;
     });
 
-    const socket = io();
+    const socket = io();    
 
-    socket.on('disconnect', () => {
-      console.log('disconnected');
-      // Try to reconnect
+    let subscriptions = [];
+    const connect = () => {
       socket.connect();
+
+      // subscriptions.forEach(([eventName, handler]) => {
+      //   subscribe(eventName, handler);
+      // });
+    };
+    
+    // on reconnect, log
+    socket.io.on('reconnect', () => {
+      console.log('reconnected');
+
+      Object.entries(subscriptions).forEach(([eventName, {handler}]) => {
+        subscribe(eventName, handler);
+      });
+    });
+
+    socket.io.on('reconnect_attempt', () => {
+      console.log('reconnect_attempt');
+      console.log(socket);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('disconnected:', reason);
+      // Try to reconnect
+      // socket.connect();
+      // connect();
+    });
+
+    socket.on('connect', () => {
+      console.log('connected');
     });
 
     socket.on('error', (error) => {
       console.error('Socket error:', error);
     });
 
+    // let lastPong = Date.now();
+    // socket.on('pong', () => {
+    //   console.log('<');
+    //   lastPong = Date.now();
+    // });
+
+    // setInterval(() => {
+    //   // If time since lastPong is greater than 3 seconds, reconnect
+    //   if (Date.now() - lastPong > 3000) {
+    //     console.log('ping disconnected');
+    //     // socket.disconnect();
+    //     // socket.connect();
+    //     connect();
+    //     lastPong = Date.now();
+    //   }
+
+    //   socket.emit('ping', '');
+    //   console.log('>');
+    // }, 1000);
+
     const subscribe = (eventName, handler) => {
+      console.log('subscribing to', eventName);
+      // print stack
+      
       socket.emit('subscribe', eventName);
 
       // Listen for Redis messages and display them
@@ -60,10 +111,9 @@
       };
       socket.on(eventName, socketHandler);
 
-      return () => {
-        socket.emit('unsubscribe', eventName);
-        socket.off(eventName, socketHandler);
-      };
+      if (subscriptions[eventName])
+        socket.off(eventName, subscriptions[eventName].socketHandler);
+      subscriptions[eventName] = {handler, socketHandler};
     }
 
     document.querySelector('#interaction_excuse').addEventListener('click', e => {

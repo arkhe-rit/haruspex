@@ -15,6 +15,10 @@ const attachRedisBrowserProxy = (io) => {
     console.log('Client connected');
     const subscriptions = [];
 
+    socket.on('ping', () => {
+      socket.emit('pong');
+    });
+
     socket.on('error', (error) => {
       console.error(`Socket.IO client encountered an error: ${error.message}`);
     });

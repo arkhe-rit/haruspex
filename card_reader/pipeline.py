@@ -62,11 +62,21 @@ def narrow_to_roi(params):
 
 def rotate(params):
     def f(frame):
-        angle = params['rotate_angle']
-        img_h, img_w = np.shape(frame)[:2]
-        center = (img_w // 2, img_h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated_frame = cv2.warpAffine(frame, M, (img_w, img_h))
+        angle_num = params['rotate_angle']
+        # angle is nothing if angle_num is 0, cv2.ROTATE_90_CLOCKWISE if angle_num is 1, cv2.ROTATE_180 if angle_num is 2, cv2.ROTATE_90_COUNTERCLOCKWISE if angle_num is 3
+        angle = {
+            0: None,
+            1: cv2.ROTATE_90_CLOCKWISE,
+            2: cv2.ROTATE_180,
+            3: cv2.ROTATE_90_COUNTERCLOCKWISE
+        }[angle_num]
+
+        # img_h, img_w = np.shape(frame)[:2]
+        # center = (img_w // 2, img_h // 2)
+        # M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        # rotated_frame = cv2.warpAffine(frame, M, (img_w, img_h))
+
+        rotated_frame = cv2.rotate(frame, angle) if angle is not None else frame
 
         return rotated_frame
     return f
@@ -238,6 +248,14 @@ def sharpen(image):
     # unsharp mask
     sharpened = cv2.addWeighted(image, 2.0, blurred, -1.0, 0)
     return sharpened
+
+def sharpen2(image):
+    # https://stackoverflow.com/a/71290988
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    sharpen_kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+    sharpen = cv2.filter2D(gray, -1, sharpen_kernel)
+    thresh = cv2.threshold(sharpen, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    return thresh
 
 def order_points(pts):
     rect = np.zeros((4, 2), dtype="float32")
