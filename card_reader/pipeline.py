@@ -121,14 +121,18 @@ def background_threshold(params):
         return blurred_thresh
     return f
 
-def otsu_threshold(params):
-    def f(frame):
-        gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+def otsu_threshold(frame):
+    if frame.size == 0:
+        return frame
+    
+    if len(frame.shape) == 3:  # Check if the image has 3 dimensions (height, width, channels)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = frame
 
-        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        return thresh
-    return f
+    return thresh
 
 def contours(output_out):
     def f(frame):
@@ -238,6 +242,17 @@ def sharpen(image):
     # unsharp mask
     sharpened = cv2.addWeighted(image, 2.0, blurred, -1.0, 0)
     return sharpened
+
+def sharpen2(image):
+    # https://stackoverflow.com/a/71290988
+    if len(image.shape) == 3:  # Check if the image has 3 dimensions (height, width, channels)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image  # If the image is already grayscale, use it as is
+    sharpen_kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+    sharpen = cv2.filter2D(gray, -1, sharpen_kernel)
+    thresh = cv2.threshold(sharpen, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    return thresh
 
 def order_points(pts):
     rect = np.zeros((4, 2), dtype="float32")

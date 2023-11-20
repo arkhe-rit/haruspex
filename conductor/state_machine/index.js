@@ -13,14 +13,14 @@ class State {
     return otherState && otherState.listeners && this.listeners === otherState.listeners;
   }
 
-  async transition(event, data, emit) {
+  async transition(event, data, emit, store) {
     const listener = this.listeners[event];
     if (!listener) {
       console.info(`No listener found for event ${event}`);
       return this;
     }
 
-    const nextState = await listener(data, emit);
+    const nextState = await listener(data, emit, store);
 
     if (!nextState) {
       return this;
@@ -89,6 +89,7 @@ class Machine {
     const emit = (event, data) => publish(event, data);
 
     let unsubs = [];
+    let store = {};
 
     while (!this.stopped) {
       let eventsOfInterest = this.state.eventsOfInterest();
@@ -100,7 +101,7 @@ class Machine {
 
       unsubs = await Promise.all(eventsOfInterest.map(event => {
         return subscribe(event, async (message, channel) => {
-          let nextState = await this.state.transition(event, message, emit) || {};
+          let nextState = await this.state.transition(event, message, emit, store) || {};
 
           // If nextState is a string, set nextState to the registered state with that name
           if (typeof nextState === 'string') {
@@ -124,14 +125,14 @@ class Machine {
         });
       }));
 
-      await this.state.transition('enter', {}, emit);
+      await this.state.transition('enter', {}, emit, store);
 
       const stateToTransitionTo = await newState;
       const fromName = this.namesByState.get(this.state) || 'unknown';
       const toName = this.namesByState.get(stateToTransitionTo) || 'unknown';
       
       console.info(`Transitioning from state "${fromName}" to state "${toName}"`);
-      await this.state.transition('exit', {}, emit);
+      await this.state.transition('exit', {}, emit, store);
       this.state = stateToTransitionTo;
     }
   }

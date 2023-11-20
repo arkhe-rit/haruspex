@@ -54,7 +54,7 @@ app
   .use(router.routes())
   .use(router.allowedMethods());
 
-const PORT = process.env.PORT || 42923;
+const PORT = process.env.PORT || 42922;
 
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);

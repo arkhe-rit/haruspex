@@ -18,12 +18,14 @@ try {
 
 let mediaPlayTimer;
 const generating = (card_spread) => State.empty()
-  .enter(async (_, emit) => {
+  .enter(async (_, emit, store = {}) => {
+    const transcriptLines = store['overheard-conversation'] || [];
+    const transcript = transcriptLines?.map(([line]) => line).join('\n') || '';
     // const twilightZone = await generate_twilightZone({ numWords: 70 })(theseCards);
     // console.log('Generated text:', twilightZone);
     await Promise.all([
       generateMedia(card_spread, emit),
-      generateFortune(card_spread, emit)
+      generateFortune(card_spread, transcript, emit)
     ]);
     // return streamingAudio(twilightZone);
   })
@@ -76,12 +78,12 @@ const defaultFortunes = [
 ];
 
 // Ask openai for a fortune
-async function generateFortune(cards, emit) {
+async function generateFortune(cards, transcript, emit) {
   emit('fortune-generating', '');
 
   const [voice, generate] = pick([
-    ['rod', generate_twilightZone({ numWords: 60 })],
-    ['missCleo', generate_missCleo({ numWords: 60 })]
+    ['rod', generate_twilightZone({ numWords: 60, transcript })],
+    ['missCleo', generate_missCleo({ numWords: 60, transcript })]
   ]);
 
   try {

@@ -28,9 +28,9 @@ params = {
     'threshold_C': 15, #15 #40,
     'show_threshold': False,
     'debug_show': False,
-    'roi_top': .29,
-    'roi_left': .18,
-    'roi_size_factor': .6,
+    'roi_top': 0,
+    'roi_left': 0,
+    'roi_size_factor': 1,
     'show_roi': False,
     'rotate_angle': 0
 }
@@ -79,6 +79,8 @@ def find_best_text_match(cam_image):
     cam_rotated_titles = [cv2.bitwise_not(img) for img in cam_rotated_titles]
     
     # sharpen cam_rotated_titles
+    # cam_rotated_titles = [pipeline.sharpen(img) for img in cam_rotated_titles]
+    # cam_rotated_titles = [pipeline.otsu_threshold(img) for img in cam_rotated_titles]
     cam_rotated_titles = [pipeline.sharpen(img) for img in cam_rotated_titles]
 
     def ocr_psm11(img):
@@ -87,11 +89,16 @@ def find_best_text_match(cam_image):
     def ocr_psm7(img):
         return pytesseract.image_to_string(img, config=r'--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ -c tessedit_do_invert=0')
 
+    def ocr_psm13(img):
+        return pytesseract.image_to_string(img, config=r'--psm 13 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ -c tessedit_do_invert=0')
+
+
     if params['debug_show']:
         for idx, img in enumerate(cam_rotated_titles):
             print("---")
-            print(ocr_psm11(img))
-            print(ocr_psm7(img))
+            print("PSM11", ocr_psm11(img))
+            print("PSM7", ocr_psm7(img))
+            print("PSM13", ocr_psm13(img))
             print("---")
             cv2.imshow('cam_rotated_titles', img)
             cv2.waitKey(0)
@@ -105,10 +112,11 @@ def find_best_text_match(cam_image):
     with ThreadPoolExecutor() as executor:
         psm11_calls = [(img, ocr_psm11) for img in cam_rotated_titles]
         psm7_calls = [(img, ocr_psm7) for img in cam_rotated_titles]
+        psm13_calls = [(img, ocr_psm13) for img in cam_rotated_titles]
 
         cam_rotated_text = list(
             executor.map(lambda args: args[1](args[0]), 
-                         psm11_calls + psm7_calls)
+                         psm11_calls + psm7_calls + psm13_calls)
         )
     # cam_rotated_text = ["death" for _ in cam_rotated_titles]
     # trim everything in cam_rotated_text & remove empty strings
@@ -183,6 +191,18 @@ def control(params_out):
 
     return True
 
+def horizontal_concat(images, interpolation=cv2.INTER_CUBIC):
+    h_min = min(im.shape[0] for im in images)
+    im_list_resize = [cv2.resize(im, (int(im.shape[1] * h_min / im.shape[0]), h_min), interpolation=interpolation)
+                      for im in images]
+    return cv2.hconcat(im_list_resize)
+
+def vertical_concat(images, interpolation=cv2.INTER_CUBIC):
+    w_min = min(im.shape[1] for im in images)
+    im_list_resize = [cv2.resize(im, (w_min, int(im.shape[0] * w_min / im.shape[1])), interpolation=interpolation)
+                      for im in images]
+    return cv2.vconcat(im_list_resize)
+
 def main():
     vid = ThreadedCamera(2, cv2.CAP_DSHOW)
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
@@ -191,12 +211,18 @@ def main():
     
     output = {}
         #         .map(pipeline.background_threshold(params)) \
-
-    process_stream = Pipeline() \
+        
+    transform_stream = Pipeline() \
         .map(pipeline.rotate(params)) \
-        .map(pipeline.narrow_to_roi(params)) \
-        .map(pipeline.otsu_threshold(params)) \
-        .map(pipeline.contours(output)) \
+        .map(pipeline.narrow_to_roi(params))
+    
+    process_stream = Pipeline() \
+        .map(pipeline.otsu_threshold) \
+        .map(pipeline.contours(output))
+    # process_stream = Pipeline() \
+    #     .map(pipeline.background_threshold(params)) \
+    #     .map(pipeline.contours(output))  
+
 
     should_continue = True
 
@@ -205,7 +231,9 @@ def main():
             time.sleep(1 / FPS)
 
             raw_frame = vid.latest()
-            frame = process_stream(raw_frame)
+            transformed_frame = transform_stream(raw_frame)
+            processed_frame = process_stream(transformed_frame)
+            frame = processed_frame
 
             # if show_roi
             if params['show_roi']:
@@ -215,7 +243,7 @@ def main():
             # sort by center x
             contours = sorted(contours, key=lambda contour: np.mean(contour[:, 0, 0]))
 
-            frame_to_show = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if params['show_threshold'] else pipeline.narrow_to_roi(params)(raw_frame)
+            frame_to_show = cv2.cvtColor(processed_frame, cv2.COLOR_GRAY2BGR) if params['show_threshold'] else transformed_frame
             approximations = [
                 cv2.approxPolyDP(curve=contour, epsilon=0.1 * cv2.arcLength(contour, True), closed=True) 
                 for contour in contours

@@ -12,7 +12,8 @@ const openai = new OpenAIApi(configuration);
 
 const max_content_length = {
   'gpt-3.5-turbo': 4000,
-  'gpt-4': 8000
+  'gpt-4': 8000,
+  'gpt-4-1106-preview': 4096
 }
 
 const countChatTokens = (model, messages) => {
@@ -22,7 +23,7 @@ const countChatTokens = (model, messages) => {
   if (model === "gpt-3.5-turbo") {
     tokensPerMessage = 4;
     tokensPerName = -1;
-  } else if (model === "gpt-4") {
+  } else if (model === "gpt-4" || model === "gpt-4-1106-preview") {
     tokensPerMessage = 3;
     tokensPerName = 1;
   }
@@ -75,13 +76,14 @@ const chat = (model) => (messages = []) => {
     system: (msg) => chat_again([...messages, { role: "system", content: msg }]),
     user: (msg) => chat_again([...messages, { role: "user", content: msg }]),
     assistant: (msg) => chat_again([...messages, { role: "assistant", content: msg }]),
+    call: (f) => f(go)
   });
 
   return go;
 };
 
 const chat_gpt35 = chat('gpt-3.5-turbo');
-const chat_gpt4 = chat('gpt-4');
+const chat_gpt4 = chat('gpt-4-1106-preview');
 
 // As `chat` above, but made to work with the response as a stream
 // const chatStream = (model) => (messages = []) => {

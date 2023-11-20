@@ -8,6 +8,7 @@ import { arrayContainsAll, arrayMode } from '../util.js';
 import { files as video_files } from '../../media/videos/index.js';
 import { files as audio_files } from '../../media/sfx/index.js';
 import { generating } from './generating.js';
+import { eavesdropping } from './eavesdropping.js';
 
 let voices;
 try {
@@ -57,7 +58,11 @@ const waitingForCards = () => State.empty()
   })
   .on('haruspex-spread-complete', async (complete_spread, emit) => {
     return generating(complete_spread);
-  });
+  })
+  .and(eavesdropping({
+    expirationTime: 30 * 1000, 
+    maxWordsToKeep: 100
+  }))
 
 export {
   waitingForCards

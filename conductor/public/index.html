@@ -33,6 +33,7 @@
     const MEDIA_DURATION = 15 * 1000;
 
     let CURRENT_STATE;
+    let subscriptions = {};
 
     document.querySelectorAll('audio').forEach(elem => {
       elem.volume = 0;
@@ -40,14 +41,20 @@
 
     const socket = io();
 
-    socket.on('disconnect', () => {
-      console.log('disconnected');
-      // Try to reconnect
-      socket.connect();
-    });
-
     socket.on('error', (error) => {
       console.error('Socket error:', error);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('disconnected:', reason);
+    });
+
+    socket.io.on('reconnect', () => {
+      console.log('reconnected');
+
+      Object.entries(subscriptions).forEach(([eventName, {handler}]) => {
+        subscribe(eventName, handler);
+      });
     });
 
     const subscribe = (eventName, handler) => {
@@ -60,10 +67,9 @@
       };
       socket.on(eventName, socketHandler);
 
-      return () => {
-        socket.emit('unsubscribe', eventName);
-        socket.off(eventName, socketHandler);
-      };
+      if (subscriptions[eventName])
+        socket.off(eventName, subscriptions[eventName].socketHandler);
+      subscriptions[eventName] = {handler, socketHandler};
     }
 
     document.querySelector('#interaction_excuse').addEventListener('click', e => {
@@ -182,7 +188,7 @@
       const defaultAudio = document.querySelector('#default_audio');
       const thinkingAudio = document.querySelector('#thinking_audio');
 
-      fadeTo(0.5, 3000, defaultAudio);
+      fadeTo(0.33, 3000, defaultAudio);
       defaultAudio.play();
 
       fadeTo(0, 3000, thinkingAudio);
@@ -306,7 +312,7 @@
         audio.play();
 
         // fade in over 3 seconds with setInterval
-        fadeTo(1, 3000, audio);
+        fadeTo(0.33, 3000, audio);
       });
     }
 

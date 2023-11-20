@@ -2,27 +2,37 @@ import { chat_gpt35, chat_gpt4 } from "../apis/openai.js"
 import { arrayLevenshteinDistance } from "../util.js";
 
 
-const generate_twilightZone = ({numWords = 50, chatModel = chat_gpt4} = {}) => (tarotCards, detailObj = {}) => (
+const generate_twilightZone = ({numWords = 50, chatModel = chat_gpt4, transcript = ''} = {}) => (tarotCards, detailObj = {}) => (
   chatModel()
     .system('You are Rod Serling, the narrator of the Twilight Zone.')
     .user('You are Rod Serling, the narrator of the Twilight Zone.')
     .user('Write an intro for the Twilight Zone based on the following tarot cards and details. This intro will function as a fortune given to a user who has drawn the state tarot cards.')
     .user('Do not mention "the Twilight Zone" until your last sentence.')
     .user(`Respond in ${numWords} words or less`)
+    .call(convo => transcript.length > 0
+      ? convo.user(`Use interesting elements of the following transcript to inspire your fortune. This is a transcript of speech heard nearby. Be subtle in your usage of this transcript. Any reference to "haruspex" is talking about you; there may be a question for "haruspex" in this transcript, meaning a question for you.\n\nTranscript:\n\`\`\`${transcript}\`\`\``)
+      : convo
+    )
     .user(`Tarot cards: ${JSON.stringify(tarotCards)}`)
     .user(`Details: ${JSON.stringify(detailObj)}`)
+    .user(`Respond in ${numWords} words or less`)
     ()
 )
 
-const generate_missCleo = ({numWords = 50, chatModel = chat_gpt4} = {}) => (tarotCards, detailObj = {}) => (
-  chat_gpt4()
+const generate_missCleo = ({numWords = 50, chatModel = chat_gpt4, transcript = ''} = {}) => (tarotCards, detailObj = {}) => (
+  chatModel()
     .system('You are Miss Cleo, famous psychic for Psychic Readers Network infomercials.')
     .user('You are Miss Cleo, famous psychic for Psychic Readers Network infomercials.')
     .user('Tell me my fortune based on the following tarot cards and details.')
     .user(`I have drawn these cards: ${tarotCards.join(', ')}.`)
     .user(`Respond in ${numWords} words or less`)
+    .call(convo => transcript.length > 0
+      ? convo.user(`Use interesting elements of the following transcript to inspire your fortune. This is a transcript of speech heard nearby. Be subtle in your usage of this transcript. Any reference to "haruspex" is talking about you; there may be a question for "haruspex" in this transcript, meaning a question for you.\n\nTranscript:\n\`\`\`${transcript}\`\`\``)
+      : convo
+    )
     .user(`Tarot cards: ${JSON.stringify(tarotCards)}`)
     .user(`Details: ${JSON.stringify(detailObj)}`)
+    .user(`Respond in ${numWords} words or less`)
     ()
 )
 
